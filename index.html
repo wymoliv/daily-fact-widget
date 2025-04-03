@@ -3,104 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Факт дня</title>
+    <title>Интересный факт дня</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            background-color: #f5f5f5;
+            min-height: 100vh;
+            background-color: #f0f8ff;
             margin: 0;
+            padding: 20px;
         }
         .widget {
             background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            max-width: 400px;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            max-width: 500px;
+            width: 100%;
             text-align: center;
+            transition: all 0.3s ease;
         }
         h1 {
-            color: #333;
-            font-size: 24px;
+            color: #2c3e50;
+            font-size: 28px;
+            margin-bottom: 20px;
         }
-        .fact {
-            font-size: 18px;
+        .fact-container {
             margin: 20px 0;
-            color: #555;
-            min-height: 60px;
+            min-height: 150px;
         }
-        button {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
+        .fact-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            max-height: 200px;
+            object-fit: cover;
         }
-        button:hover {
-            background: #45a049;
-        }
-        .error {
-            color: #ff4444;
+        .fact-text {
+            font-size: 18px;
+            color: #34495e;
+            line-height: 1.6;
         }
         .loading {
-            color: #888;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        .error {
+            color: #e74c3c;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            margin-top: 15px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .source {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #95a5a6;
         }
     </style>
 </head>
 <body>
     <div class="widget">
-        <h1>Факт дня</h1>
-        <div class="fact" id="fact">Нажмите кнопку, чтобы получить факт!</div>
+        <h1>Интересный факт дня</h1>
+        <div class="fact-container">
+            <img id="factImage" class="fact-image" src="" alt="Иллюстрация факта" style="display: none;">
+            <div id="factText" class="fact-text">Нажмите кнопку, чтобы узнать факт!</div>
+        </div>
         <button onclick="fetchFact()">Новый факт</button>
+        <div id="factSource" class="source"></div>
     </div>
 
     <script>
-        // Альтернативные API с поддержкой CORS
-        const factAPIs = [
-            "https://uselessfacts.jsph.pl/api/v2/facts/random?language=ru",
-            "https://cat-fact.herokuapp.com/facts/random"
+        // Локальные факты с картинками (на русском)
+        const localFacts = [
+            {
+                text: "Кошки спят около 16 часов в день.",
+                image: "https://placekitten.com/500/300",
+                source: "Факт о кошках"
+            },
+            {
+                text: "Мёд никогда не портится - археологи находили съедобный мёд в древнеегипетских гробницах.",
+                image: "https://source.unsplash.com/500x300/?honey",
+                source: "Исторический факт"
+            },
+            {
+                text: "Сердце синего кита настолько большое, что человек мог бы проплыть через его артерии.",
+                image: "https://source.unsplash.com/500x300/?whale",
+                source: "Факт о животных"
+            },
+            {
+                text: "Бананы - это ягоды, а клубника - нет.",
+                image: "https://source.unsplash.com/500x300/?banana",
+                source: "Ботанический факт"
+            },
+            {
+                text: "Осьминоги имеют три сердца и голубую кровь.",
+                image: "https://source.unsplash.com/500x300/?octopus",
+                source: "Морской факт"
+            }
         ];
 
-        // Локальные факты на случай недоступности API
-        const localFacts = [
-            "Кошки спят 70% своей жизни.",
-            "Мёд никогда не портится.",
-            "Сердце кита бьётся 9 раз в минуту.",
-            "Осьминоги имеют три сердца.",
-            "Бананы — это ягоды."
+        // API с поддержкой CORS (на русском)
+        const factAPIs = [
+            {
+                url: "https://uselessfacts.jsph.pl/api/v2/facts/random?language=ru",
+                getText: (data) => data.text,
+                getImage: (data) => `https://source.unsplash.com/500x300/?${encodeURIComponent(data.text.split(' ')[0])}`
+            },
+            {
+                url: "https://cat-fact.herokuapp.com/facts/random",
+                getText: (data) => {
+                    const translations = {
+                        "cat": "кот",
+                        "cats": "коты",
+                        "dog": "собака",
+                        // Добавьте другие переводы по необходимости
+                    };
+                    let text = data.text;
+                    for (const [en, ru] of Object.entries(translations)) {
+                        text = text.replace(new RegExp(en, 'gi'), ru);
+                    }
+                    return text;
+                },
+                getImage: (data) => "https://placekitten.com/500/300"
+            }
         ];
 
         async function fetchFact() {
-            const factElement = document.getElementById('fact');
-            factElement.innerHTML = '<span class="loading">Загрузка...</span>';
+            const factTextElement = document.getElementById('factText');
+            const factImageElement = document.getElementById('factImage');
+            const factSourceElement = document.getElementById('factSource');
+            
+            factTextElement.innerHTML = '<span class="loading">Загружаем интересный факт...</span>';
+            factImageElement.style.display = 'none';
+            factSourceElement.textContent = '';
             
             try {
                 // Пробуем разные API по очереди
-                for (const apiUrl of factAPIs) {
+                for (const api of factAPIs) {
                     try {
-                        const response = await fetch(apiUrl);
+                        const response = await fetch(api.url);
                         if (!response.ok) continue;
                         
                         const data = await response.json();
-                        let factText = "";
-                        
-                        // Обработка разных API
-                        if (apiUrl.includes("jsph.pl")) {
-                            factText = data.text;
-                        } else if (apiUrl.includes("cat-fact")) {
-                            factText = data.text;
-                        }
+                        const factText = api.getText(data);
                         
                         if (factText) {
-                            factElement.textContent = factText;
+                            factTextElement.textContent = factText;
+                            
+                            // Устанавливаем картинку
+                            const imageUrl = api.getImage(data);
+                            factImageElement.src = imageUrl;
+                            factImageElement.style.display = 'block';
+                            factImageElement.alt = factText.split('.')[0];
+                            
+                            factSourceElement.textContent = `Источник: ${api.url.split('/')[2]}`;
                             return;
                         }
                     } catch (e) {
+                        console.log(`API ${api.url} недоступно:`, e);
                         continue;
                     }
                 }
@@ -109,14 +183,19 @@
                 throw new Error("Все API недоступны");
                 
             } catch (error) {
-                const randomFact = localFacts[Math.floor(Math.random() * localFacts.length)];
-                factElement.innerHTML = `<span>${randomFact}</span><br>
-                                       <span class="error">(Используются локальные данные)</span>`;
                 console.error("Ошибка:", error);
+                const randomFact = localFacts[Math.floor(Math.random() * localFacts.length)];
+                factTextElement.textContent = randomFact.text;
+                
+                factImageElement.src = randomFact.image;
+                factImageElement.style.display = 'block';
+                factImageElement.alt = randomFact.text.split('.')[0];
+                
+                factSourceElement.innerHTML = `<span class="error">(Используются локальные данные)</span><br>${randomFact.source}`;
             }
         }
 
-        // Первая загрузка
+        // Первая загрузка при открытии
         fetchFact();
     </script>
 </body>
