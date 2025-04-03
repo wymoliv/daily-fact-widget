@@ -87,31 +87,45 @@
     </div>
 
     <script>
+        // Словарь ключевых слов для поиска изображений
+        const imageKeywords = {
+            "кошк": "cat",
+            "кот": "cat",
+            "мёд": "honey",
+            "кит": "whale",
+            "банан": "banana",
+            "осьминог": "octopus",
+            "музык": "music",
+            "книг": "book",
+            "истор": "history",
+            "наук": "science",
+            "растен": "plant",
+            "животн": "animal",
+            "погод": "weather",
+            "спорт": "sport",
+            "технолог": "technology"
+        };
+
         // Локальные факты с картинками (на русском)
         const localFacts = [
             {
                 text: "Кошки спят около 16 часов в день.",
-                image: "https://placekitten.com/500/300",
                 source: "Факт о кошках"
             },
             {
                 text: "Мёд никогда не портится - археологи находили съедобный мёд в древнеегипетских гробницах.",
-                image: "https://source.unsplash.com/500x300/?honey",
                 source: "Исторический факт"
             },
             {
                 text: "Сердце синего кита настолько большое, что человек мог бы проплыть через его артерии.",
-                image: "https://source.unsplash.com/500x300/?whale",
                 source: "Факт о животных"
             },
             {
                 text: "Бананы - это ягоды, а клубника - нет.",
-                image: "https://source.unsplash.com/500x300/?banana",
                 source: "Ботанический факт"
             },
             {
                 text: "Осьминоги имеют три сердца и голубую кровь.",
-                image: "https://source.unsplash.com/500x300/?octopus",
                 source: "Морской факт"
             }
         ];
@@ -120,8 +134,7 @@
         const factAPIs = [
             {
                 url: "https://uselessfacts.jsph.pl/api/v2/facts/random?language=ru",
-                getText: (data) => data.text,
-                getImage: (data) => `https://source.unsplash.com/500x300/?${encodeURIComponent(data.text.split(' ')[0])}`
+                getText: (data) => data.text
             },
             {
                 url: "https://cat-fact.herokuapp.com/facts/random",
@@ -130,17 +143,35 @@
                         "cat": "кот",
                         "cats": "коты",
                         "dog": "собака",
-                        // Добавьте другие переводы по необходимости
                     };
                     let text = data.text;
                     for (const [en, ru] of Object.entries(translations)) {
                         text = text.replace(new RegExp(en, 'gi'), ru);
                     }
                     return text;
-                },
-                getImage: (data) => "https://placekitten.com/500/300"
+                }
             }
         ];
+
+        // Функция для определения ключевого слова по тексту факта
+        function getImageKeyword(text) {
+            const lowerText = text.toLowerCase();
+            for (const [ru, en] of Object.entries(imageKeywords)) {
+                if (lowerText.includes(ru)) {
+                    return en;
+                }
+            }
+            return "random"; // Если не найдено подходящего ключевого слова
+        }
+
+        // Функция для получения случайного изображения по ключевому слову
+        function getImageUrl(text) {
+            const keyword = getImageKeyword(text);
+            const size = "500x300";
+            
+            // Используем Unsplash для качественных изображений
+            return `https://source.unsplash.com/${size}/?${keyword}`;
+        }
 
         async function fetchFact() {
             const factTextElement = document.getElementById('factText');
@@ -164,8 +195,8 @@
                         if (factText) {
                             factTextElement.textContent = factText;
                             
-                            // Устанавливаем картинку
-                            const imageUrl = api.getImage(data);
+                            // Получаем подходящее изображение для факта
+                            const imageUrl = getImageUrl(factText);
                             factImageElement.src = imageUrl;
                             factImageElement.style.display = 'block';
                             factImageElement.alt = factText.split('.')[0];
@@ -180,18 +211,20 @@
                 }
                 
                 // Если все API недоступны - используем локальные факты
-                throw new Error("Все API недоступны");
-                
-            } catch (error) {
-                console.error("Ошибка:", error);
                 const randomFact = localFacts[Math.floor(Math.random() * localFacts.length)];
                 factTextElement.textContent = randomFact.text;
                 
-                factImageElement.src = randomFact.image;
+                // Получаем подходящее изображение для локального факта
+                const imageUrl = getImageUrl(randomFact.text);
+                factImageElement.src = imageUrl;
                 factImageElement.style.display = 'block';
                 factImageElement.alt = randomFact.text.split('.')[0];
                 
                 factSourceElement.innerHTML = `<span class="error">(Используются локальные данные)</span><br>${randomFact.source}`;
+                
+            } catch (error) {
+                console.error("Ошибка:", error);
+                factTextElement.innerHTML = '<span class="error">Произошла ошибка при загрузке факта</span>';
             }
         }
 
