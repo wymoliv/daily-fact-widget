@@ -23,36 +23,25 @@
             max-width: 500px;
             width: 100%;
             text-align: center;
-            transition: all 0.3s ease;
         }
         h1 {
             color: #2c3e50;
-            font-size: 28px;
+            font-size: 24px;
             margin-bottom: 20px;
         }
-        .fact-container {
-            margin: 20px 0;
-            min-height: 150px;
-        }
         .fact-image {
-            max-width: 100%;
-            height: auto;
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
             border-radius: 10px;
             margin-bottom: 15px;
-            max-height: 200px;
-            object-fit: cover;
         }
         .fact-text {
             font-size: 18px;
             color: #34495e;
-            line-height: 1.6;
-        }
-        .loading {
-            color: #7f8c8d;
-            font-style: italic;
-        }
-        .error {
-            color: #e74c3c;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            min-height: 80px;
         }
         button {
             background: #3498db;
@@ -63,7 +52,6 @@
             cursor: pointer;
             font-size: 16px;
             transition: background 0.3s;
-            margin-top: 15px;
         }
         button:hover {
             background: #2980b9;
@@ -71,186 +59,101 @@
         .source {
             margin-top: 15px;
             font-size: 14px;
-            color: #95a5a6;
-        }
-        .translation-notice {
-            font-size: 12px;
             color: #7f8c8d;
-            margin-top: 5px;
+        }
+        @media (max-width: 600px) {
+            .widget {
+                padding: 20px;
+            }
+            .fact-image {
+                height: 150px;
+            }
+            h1 {
+                font-size: 20px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="widget">
         <h1>Интересный факт дня</h1>
-        <div class="fact-container">
-            <img id="factImage" class="fact-image" src="" alt="Иллюстрация факта" style="display: none;">
-            <div id="factText" class="fact-text">Нажмите кнопку, чтобы узнать факт!</div>
-            <div id="translationNotice" class="translation-notice" style="display: none;"></div>
-        </div>
-        <button onclick="fetchFact()">Новый факт</button>
-        <div id="factSource" class="source"></div>
+        <img id="factImage" class="fact-image" src="https://source.unsplash.com/random/500x300/?nature" alt="Иллюстрация факта">
+        <div id="factText" class="fact-text">Загрузка факта...</div>
+        <button onclick="getNewFact()">Новый факт</button>
+        <div class="source">Источник: randstuff.ru</div>
     </div>
 
     <script>
-        // Ключ API Yandex Translate (для демонстрации используем бесплатный ключ)
-        const YANDEX_TRANSLATE_KEY = 'trnsl.1.1.20230701T000000Z.0123456789abcdef0123456789abcdef';
-        
-        // Словарь ключевых слов для поиска изображений
-        const imageKeywords = {
-            "кошк": "cat",
-            "кот": "cat",
-            "мёд": "honey",
-            "кит": "whale",
-            "банан": "banana",
-            "осьминог": "octopus",
-            "мигрен": "headache",
-            "америк": "usa",
-            "1980": "80s",
-            "увеличил": "growth",
-            "случа": "case",
-            "здоров": "health",
-            "медицин": "medicine",
+        // Словарь для подбора изображений по теме факта
+        const imageThemes = {
+            "животн": "animal",
+            "наук": "science",
             "истор": "history",
-            "наук": "science"
+            "технолог": "technology",
+            "географ": "nature",
+            "культур": "art",
+            "спорт": "sport",
+            "кулин": "food"
         };
 
-        // Локальные факты с картинками (на русском)
-        const localFacts = [
-            {
-                text: "Кошки спят около 16 часов в день.",
-                source: "Факт о животных"
-            },
-            {
-                text: "Мёд никогда не портится - археологи находили съедобный мёд в древнеегипетских гробницах.",
-                source: "Исторический факт"
-            },
-            {
-                text: "Сердце синего кита настолько большое, что человек мог бы проплыть через его артерии.",
-                source: "Факт о природе"
-            }
-        ];
-
-        // API с фактами
-        const factAPIs = [
-            {
-                url: "https://uselessfacts.jsph.pl/api/v2/facts/random",
-                getText: (data) => data.text,
-                source: "uselessfacts.jsph.pl"
-            },
-            {
-                url: "https://cat-fact.herokuapp.com/facts/random",
-                getText: (data) => data.text,
-                source: "cat-fact.herokuapp.com"
-            }
-        ];
-
-        // Функция перевода текста через Yandex Translate API
-        async function translateText(text) {
-            try {
-                const response = await fetch(`https://translate.yandex.net/api/v1.5/tr.json/translate?key=${YANDEX_TRANSLATE_KEY}&text=${encodeURIComponent(text)}&lang=en-ru`);
-                const data = await response.json();
-                return data.text[0];
-            } catch (error) {
-                console.error("Ошибка перевода:", error);
-                return text; // Возвращаем оригинальный текст если перевод не удался
-            }
-        }
-
-        // Функция для определения ключевого слова по тексту факта
-        function getImageKeyword(text) {
-            const lowerText = text.toLowerCase();
-            for (const [ru, en] of Object.entries(imageKeywords)) {
-                if (lowerText.includes(ru)) {
-                    return en;
+        // Функция для получения тематического изображения
+        function getThemeImage(factText) {
+            const lowerText = factText.toLowerCase();
+            for (const [keyword, theme] of Object.entries(imageThemes)) {
+                if (lowerText.includes(keyword)) {
+                    return `https://source.unsplash.com/500x300/?${theme}`;
                 }
             }
-            return "random";
+            return "https://source.unsplash.com/random/500x300/?interesting";
         }
 
-        // Функция для получения случайного изображения по ключевому слову
-        function getImageUrl(text) {
-            const keyword = getImageKeyword(text);
-            return `https://source.unsplash.com/500x300/?${keyword}`;
-        }
-
-        async function fetchFact() {
+        // Функция для получения факта с randstuff.ru
+        async function getNewFact() {
             const factTextElement = document.getElementById('factText');
             const factImageElement = document.getElementById('factImage');
-            const factSourceElement = document.getElementById('factSource');
-            const translationNotice = document.getElementById('translationNotice');
             
-            factTextElement.innerHTML = '<span class="loading">Загружаем интересный факт...</span>';
-            factImageElement.style.display = 'none';
-            factSourceElement.textContent = '';
-            translationNotice.style.display = 'none';
+            factTextElement.textContent = "Загружаем новый факт...";
             
             try {
-                // Сначала пробуем локальные факты (30% случаев)
-                if (Math.random() < 0.3) {
-                    const randomFact = localFacts[Math.floor(Math.random() * localFacts.length)];
-                    showFact(randomFact.text, randomFact.source, false);
-                    return;
+                // Используем прокси для обхода CORS
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                const targetUrl = 'https://randstuff.ru/fact/';
+                
+                const response = await fetch(proxyUrl + targetUrl);
+                const html = await response.text();
+                
+                // Парсим HTML для извлечения факта
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const factElement = doc.querySelector('.fact-text');
+                
+                if (factElement) {
+                    const factText = factElement.textContent.trim();
+                    factTextElement.textContent = factText;
+                    
+                    // Устанавливаем тематическое изображение
+                    factImageElement.src = getThemeImage(factText);
+                } else {
+                    throw new Error("Факт не найден");
                 }
-                
-                // Пробуем разные API по очереди
-                for (const api of factAPIs) {
-                    try {
-                        const response = await fetch(api.url);
-                        if (!response.ok) continue;
-                        
-                        const data = await response.json();
-                        let factText = api.getText(data);
-                        
-                        if (factText) {
-                            // Переводим текст на русский
-                            const translatedText = await translateText(factText);
-                            showFact(translatedText, api.source, true);
-                            return;
-                        }
-                    } catch (e) {
-                        console.log(`API ${api.url} недоступно:`, e);
-                        continue;
-                    }
-                }
-                
-                // Если все API недоступны - используем локальные факты
-                const randomFact = localFacts[Math.floor(Math.random() * localFacts.length)];
-                showFact(randomFact.text, randomFact.source, false);
-                
             } catch (error) {
                 console.error("Ошибка:", error);
-                const randomFact = localFacts[Math.floor(Math.random() * localFacts.length)];
-                showFact(randomFact.text, randomFact.source, false);
+                factTextElement.textContent = "Не удалось загрузить факт. Попробуйте ещё раз.";
+                
+                // Локальные резервные факты на случай ошибки
+                const backupFacts = [
+                    "Кошки спят около 16 часов в день.",
+                    "Мёд никогда не портится.",
+                    "Осьминоги имеют три сердца."
+                ];
+                const randomFact = backupFacts[Math.floor(Math.random() * backupFacts.length)];
+                factTextElement.textContent = randomFact;
+                factImageElement.src = getThemeImage(randomFact);
             }
         }
 
-        function showFact(text, source, isTranslated) {
-            const factTextElement = document.getElementById('factText');
-            const factImageElement = document.getElementById('factImage');
-            const factSourceElement = document.getElementById('factSource');
-            const translationNotice = document.getElementById('translationNotice');
-            
-            factTextElement.textContent = text;
-            
-            // Устанавливаем изображение
-            const imageUrl = getImageUrl(text);
-            factImageElement.src = imageUrl;
-            factImageElement.style.display = 'block';
-            factImageElement.alt = text.split('.')[0];
-            
-            factSourceElement.textContent = `Источник: ${source}`;
-            
-            if (isTranslated) {
-                translationNotice.textContent = "Факт переведен с английского";
-                translationNotice.style.display = 'block';
-            } else {
-                translationNotice.style.display = 'none';
-            }
-        }
-
-        // Первая загрузка при открытии
-        fetchFact();
+        // Загружаем первый факт при открытии
+        getNewFact();
     </script>
 </body>
 </html>
